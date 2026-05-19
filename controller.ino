@@ -1,7 +1,8 @@
 #include "MIDIUSB.h"
 
 // Configuration
-const int potPins[] = {A0, A1, A2, A3, 4, 6, 8, 9, 10}; 
+// These constants explicitly point the Arduino core to the ADC channels
+const int potPins[] = {A0, A1, A2, A3, A6, A7, A8, A9, A10};
 const int DEADZONE = 2; // Prevents "MIDI jitter"
 int lastPotValues[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 

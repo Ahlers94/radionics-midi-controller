@@ -2,8 +2,7 @@
 
 // Configuration
 const int potPins[] = {A0, A1, A2, A3, A6, A7, A8, A9, A10};
-const int RAW_DEADZONE = 6; // Stable threshold on the 10-bit scale (0-1023)
-int lastPotValues[9];       // Initialized dynamically in setup()
+int lastMidiValues[9];       // Track the LAST SENT 7-bit MIDI value (0-127)
 
 void controlChange(byte channel, byte control, byte value) {
   midiEventPacket_t event = {0x0B, 0xB0 | channel, control, value};
@@ -11,32 +10,31 @@ void controlChange(byte channel, byte control, byte value) {
 }
 
 void setup() {
-  // Prime the array with actual baseline readings on boot.
-  // This prevents a sudden burst of ghost MIDI messages when plugging the box into USB.
+  // Prime the array with the initial 7-bit values on boot
   for (int i = 0; i < 9; i++) {
-    lastPotValues[i] = analogRead(potPins[i]);
+    int rawValue = analogRead(potPins[i]);
+    lastMidiValues[i] = rawValue >> 3; // Convert 10-bit to 7-bit immediately
   }
 }
 
 void loop() {
   for (int i = 0; i < 9; i++) {
     int rawValue = analogRead(potPins[i]);
+    
+    // 1. Convert to 7-bit MIDI scale immediately
+    int currentMidiValue = rawValue >> 3; 
 
-    // Hysteresis comparison on the raw 10-bit sensor data
-    if (abs(rawValue - lastPotValues[i]) > RAW_DEADZONE) { 
+    // 2. Only respond if the actual 7-bit MIDI value has moved
+    if (currentMidiValue != lastMidiValues[i]) { 
       
-      // Cache the new raw baseline immediately
-      lastPotValues[i] = rawValue;
-      
-      // Compress 0-1023 down to 0-127 via bit shifting (drops 3 least significant bits)
-      int midiValue = rawValue >> 3; 
+      // Update our history cache
+      lastMidiValues[i] = currentMidiValue;
       
       // Send CC message (Channel 0, Controller numbers 1 through 9)
-      controlChange(0, i + 1, midiValue);
+      controlChange(0, i + 1, currentMidiValue);
     }
   }
   
-  // Single global flush updates the hardware buffer efficiently
   MidiUSB.flush(); 
-  delay(5); 
+  delay(10); // Slightly increased delay to give the ADC more settling time
 }
